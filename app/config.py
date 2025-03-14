@@ -5,29 +5,24 @@ from typing import Dict
 
 from pydantic import BaseModel, Field
 
-
 def get_project_root() -> Path:
     """Get the project root directory"""
     return Path(__file__).resolve().parent.parent
 
-
 PROJECT_ROOT = get_project_root()
 WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
-
 
 class LLMSettings(BaseModel):
     model: str = Field(..., description="Model name")
     base_url: str = Field(..., description="API base URL")
     api_key: str = Field(..., description="API key")
+    api_type: str = Field(..., description="API type (e.g., 'openai' or 'azure')")
+    api_version: str = Field("1.0", description="API version")
     max_tokens: int = Field(4096, description="Maximum number of tokens per request")
     temperature: float = Field(1.0, description="Sampling temperature")
-    api_type: str = Field(..., description="AzureOpenai or Openai")
-    api_version: str = Field(..., description="Azure Openai version if AzureOpenai")
-
 
 class AppConfig(BaseModel):
     llm: Dict[str, LLMSettings]
-
 
 class Config:
     _instance = None
@@ -76,10 +71,10 @@ class Config:
             "model": base_llm.get("model"),
             "base_url": base_llm.get("base_url"),
             "api_key": base_llm.get("api_key"),
+            "api_type": base_llm.get("api_type"),
+            "api_version": base_llm.get("api_version", "1.0"),
             "max_tokens": base_llm.get("max_tokens", 4096),
             "temperature": base_llm.get("temperature", 1.0),
-            "api_type": base_llm.get("api_type", ""),
-            "api_version": base_llm.get("api_version", ""),
         }
 
         config_dict = {
@@ -92,11 +87,15 @@ class Config:
             }
         }
 
+        tavily_config = raw_config.get("tavily", {})
+        self.tavily_api_key = tavily_config.get("api_key")
+
         self._config = AppConfig(**config_dict)
 
     @property
     def llm(self) -> Dict[str, LLMSettings]:
         return self._config.llm
 
-
 config = Config()
+
+TAVILY_API_KEY = config.tavily_api_key

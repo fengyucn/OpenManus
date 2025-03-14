@@ -1,23 +1,21 @@
 import asyncio
+import aiohttp
 from typing import List
-
-from googlesearch import search
+from app.config import TAVILY_API_KEY  # 假设配置文件已添加API密钥
 
 from app.tool.base import BaseTool
 
-
 class GoogleSearch(BaseTool):
-    name: str = "google_search"
-    description: str = """Perform a Google search and return a list of relevant links.
-Use this tool when you need to find information on the web, get up-to-date data, or research specific topics.
-The tool returns a list of URLs that match the search query.
+    name: str = "tavily_search"
+    description: str = """Perform a search using Tavily API and return a list of relevant links.
+Use this tool when you need to find information on the web. The tool returns a list of URLs matching the search query.
 """
     parameters: dict = {
         "type": "object",
         "properties": {
             "query": {
                 "type": "string",
-                "description": "(required) The search query to submit to Google.",
+                "description": "(required) The search query to submit to Tavily.",
             },
             "num_results": {
                 "type": "integer",
@@ -29,20 +27,22 @@ The tool returns a list of URLs that match the search query.
     }
 
     async def execute(self, query: str, num_results: int = 10) -> List[str]:
-        """
-        Execute a Google search and return a list of URLs.
+        headers = {
+            "Authorization": f"Bearer {TAVILY_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "query": query,
+            "topic": "general",
+            "max_results": num_results,
+            "search_depth": "basic",
+        }
+        url = "https://api.tavily.com/search"
 
-        Args:
-            query (str): The search query to submit to Google.
-            num_results (int, optional): The number of search results to return. Default is 10.
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status != 200:
+                    raise Exception(f"Tavily API error: {response.status} - {await response.text()}")
 
-        Returns:
-            List[str]: A list of URLs matching the search query.
-        """
-        # Run the search in a thread pool to prevent blocking
-        loop = asyncio.get_event_loop()
-        links = await loop.run_in_executor(
-            None, lambda: list(search(query, num_results=num_results))
-        )
-
-        return links
+                data = await response.json()
+                return [result["url"] for result in data.get("results", [])][:num_results]

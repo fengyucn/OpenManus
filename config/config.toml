@@ -1,0 +1,18 @@
+# Global LLM configuration
+[llm]
+model = "qwen-plus"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key = "sk-ad8ff3757ebb4075a8282fd0bdfcdc7b"
+api_type = "openai"  # Added API type
+max_tokens = 4096
+temperature = 0.0
+
+# Optional configuration for specific LLM models
+[llm.vision]
+model = "Pro/Qwen/Qwen2-VL-7B-Instruct"
+base_url = "https://api.siliconflow.cn/v1/"
+api_key = "sk-rlayywdegnqfyfytixxxhuanxwovbjhnltlwwzqpeoyvuwth"
+api_type = "openai"  # Added API type
+
+[tavily]
+api_key = "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"
