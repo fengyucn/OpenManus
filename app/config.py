@@ -5,21 +5,29 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+
 def get_project_root() -> Path:
-    """Get the project root directory"""
+    "Get the project root directory"
     return Path(__file__).resolve().parent.parent
+
 
 PROJECT_ROOT = get_project_root()
 WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
+
 
 class LLMSettings(BaseModel):
     model: str = Field(..., description="Model name")
     base_url: str = Field(..., description="API base URL")
     api_key: str = Field(..., description="API key")
-    api_type: str = Field(..., description="API type (e.g., 'openai' or 'azure')")
+    api_type: str = Field(..., description="API type (e.g., &#x27;openai&#x27; or &#x27;azure&#x27;)")
     api_version: str = Field("1.0", description="API version")
     max_tokens: int = Field(4096, description="Maximum number of tokens per request")
+    max_input_tokens: Optional[int] = Field(
+        None,
+        description="Maximum input tokens to use across all requests (None for unlimited)",
+    )
     temperature: float = Field(1.0, description="Sampling temperature")
+
 
 class ProxySettings(BaseModel):
     server: str = Field(None, description="Proxy server address")
@@ -51,10 +59,30 @@ class BrowserSettings(BaseModel):
     proxy: Optional[ProxySettings] = Field(
         None, description="Proxy settings for the browser"
     )
+    max_content_length: int = Field(
+        2000, description="Maximum length for content retrieval operations"
+    )
+
+
+class SandboxSettings(BaseModel):
+    """Configuration for the execution sandbox"""
+
+    use_sandbox: bool = Field(False, description="Whether to use the sandbox")
+    image: str = Field("python:3.12-slim", description="Base image")
+    work_dir: str = Field("/workspace", description="Container working directory")
+    memory_limit: str = Field("512m", description="Memory limit")
+    cpu_limit: float = Field(1.0, description="CPU limit")
+    timeout: int = Field(300, description="Default command timeout (seconds)")
+    network_enabled: bool = Field(
+        False, description="Whether network access is allowed"
+    )
 
 
 class AppConfig(BaseModel):
     llm: Dict[str, LLMSettings]
+    sandbox: Optional[SandboxSettings] = Field(
+        None, description="Sandbox configuration"
+    )
     browser_config: Optional[BrowserSettings] = Field(
         None, description="Browser configuration"
     )
@@ -64,6 +92,7 @@ class AppConfig(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
 
 class Config:
     _instance = None
@@ -115,6 +144,7 @@ class Config:
             "api_type": base_llm.get("api_type"),
             "api_version": base_llm.get("api_version", "1.0"),
             "max_tokens": base_llm.get("max_tokens", 4096),
+            "max_input_tokens": base_llm.get("max_input_tokens"),
             "temperature": base_llm.get("temperature", 1.0),
         }
 
@@ -155,6 +185,11 @@ class Config:
         search_settings = None
         if search_config:
             search_settings = SearchSettings(**search_config)
+        sandbox_config = raw_config.get("sandbox", {})
+        if sandbox_config:
+            sandbox_settings = SandboxSettings(**sandbox_config)
+        else:
+            sandbox_settings = SandboxSettings()
 
         config_dict = {
             "llm": {
@@ -164,6 +199,7 @@ class Config:
                     for name, override_config in llm_overrides.items()
                 },
             },
+            "sandbox": sandbox_settings,
             "browser_config": browser_settings,
             "search_config": search_settings,
         }
@@ -178,21 +214,9 @@ class Config:
         return self._config.llm
 
     @property
-    def browser_config(self) -> Optional[BrowserSettings]:
-        return self._config.browser_config
+    def sandbox(self) -> SandboxSettings:
+        return self._config.sandbox
 
-    @property
-    def search_config(self) -> Optional[SearchSettings]:
-        return self._config.search_config
-=======
-    @property
-    def browser_config(self) -> Optional[BrowserSettings]:
-        return self._config.browser_config
-
-    @property
-    def search_config(self) -> Optional[SearchSettings]:
-        return self._config.search_config
-=======
     @property
     def browser_config(self) -> Optional[BrowserSettings]:
         return self._config.browser_config
@@ -201,8 +225,11 @@ class Config:
     def search_config(self) -> Optional[SearchSettings]:
         return self._config.search_config
 
+    def workspace_root(self) -> Path:
+        "Get the workspace root directory"
+        return WORKSPACE_ROOT
 
->>>>>>> 3671e1d866084dbcb775ef5c11e751b5b5ba7fe0
+
 config = Config()
 
 TAVILY_API_KEY = config.tavily_api_key
